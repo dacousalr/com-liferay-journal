@@ -88,7 +88,7 @@ import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.util.WebKeys;
 import com.liferay.portal.kernel.workflow.WorkflowConstants;
-import com.liferay.trash.kernel.util.TrashUtil;
+import com.liferay.trash.TrashHelper;
 
 import java.io.Serializable;
 
@@ -115,12 +115,13 @@ public class JournalDisplayContext {
 	public JournalDisplayContext(
 		HttpServletRequest request, LiferayPortletRequest liferayPortletRequest,
 		LiferayPortletResponse liferayPortletResponse,
-		PortletPreferences portletPreferences) {
+		PortletPreferences portletPreferences, TrashHelper trashHelper) {
 
 		_request = request;
 		_liferayPortletRequest = liferayPortletRequest;
 		_liferayPortletResponse = liferayPortletResponse;
 		_portletPreferences = portletPreferences;
+		_trashHelper = trashHelper;
 
 		_portalPreferences = PortletPreferencesFactoryUtil.getPortalPreferences(
 			_request);
@@ -167,10 +168,20 @@ public class JournalDisplayContext {
 		ThemeDisplay themeDisplay = (ThemeDisplay)_request.getAttribute(
 			WebKeys.THEME_DISPLAY);
 
-		int page = ParamUtil.getInteger(_liferayPortletRequest, "page");
+		long groupId = ParamUtil.getLong(_request, "groupId");
+		String articleId = ParamUtil.getString(_request, "articleId");
+		double version = ParamUtil.getDouble(_request, "version");
+		int page = ParamUtil.getInteger(_request, "page");
+
+		JournalArticle article = JournalArticleLocalServiceUtil.fetchArticle(
+			groupId, articleId, version);
+
+		if (article == null) {
+			return _articleDisplay;
+		}
 
 		_articleDisplay = JournalArticleLocalServiceUtil.getArticleDisplay(
-			getArticle(), null, null, themeDisplay.getLanguageId(), page,
+			article, null, null, themeDisplay.getLanguageId(), page,
 			new PortletRequestModel(
 				_liferayPortletRequest, _liferayPortletResponse),
 			themeDisplay);
@@ -353,8 +364,36 @@ public class JournalDisplayContext {
 	}
 
 	public String getDisplayStyle() {
-		if (_displayStyle == null) {
-			_displayStyle = getDisplayStyle(_request, getDisplayViews());
+		if (_displayStyle != null) {
+			return _displayStyle;
+		}
+
+		String[] displayViews = getDisplayViews();
+
+		PortalPreferences portalPreferences =
+			PortletPreferencesFactoryUtil.getPortalPreferences(_request);
+
+		_displayStyle = ParamUtil.getString(_request, "displayStyle");
+
+		if (Validator.isNull(_displayStyle)) {
+			JournalWebConfiguration journalWebConfiguration =
+				(JournalWebConfiguration)_request.getAttribute(
+					JournalWebConfiguration.class.getName());
+
+			_displayStyle = portalPreferences.getValue(
+				JournalPortletKeys.JOURNAL, "display-style",
+				journalWebConfiguration.defaultDisplayView());
+		}
+		else if (ArrayUtil.contains(displayViews, _displayStyle)) {
+			portalPreferences.setValue(
+				JournalPortletKeys.JOURNAL, "display-style", _displayStyle);
+
+			_request.setAttribute(
+				WebKeys.SINGLE_PAGE_APPLICATION_CLEAR_CACHE, Boolean.TRUE);
+		}
+
+		if (!ArrayUtil.contains(displayViews, _displayStyle)) {
+			_displayStyle = displayViews[0];
 		}
 
 		return _displayStyle;
@@ -604,8 +643,7 @@ public class JournalDisplayContext {
 			(JournalWebConfiguration)_request.getAttribute(
 				JournalWebConfiguration.class.getName());
 
-		String[] orderColumns =
-			new String[] {"display-date", "modified-date", "title"};
+		String[] orderColumns = {"display-date", "modified-date", "title"};
 
 		if (!journalWebConfiguration.journalArticleForceAutogenerateId()) {
 			orderColumns = ArrayUtil.append(orderColumns, "id");
@@ -731,7 +769,7 @@ public class JournalDisplayContext {
 		articleSearchContainer.setOrderByType(getOrderByType());
 
 		EntriesChecker entriesChecker = new EntriesChecker(
-			_liferayPortletRequest, _liferayPortletResponse);
+			_liferayPortletRequest, _liferayPortletResponse, _trashHelper);
 
 		entriesChecker.setCssClass("entry-selector");
 		entriesChecker.setRememberCheckBoxStateURLRegex(
@@ -741,7 +779,7 @@ public class JournalDisplayContext {
 		articleSearchContainer.setRowChecker(entriesChecker);
 
 		EntriesMover entriesMover = new EntriesMover(
-			TrashUtil.isTrashEnabled(themeDisplay.getScopeGroupId()));
+			_trashHelper.isTrashEnabled(themeDisplay.getScopeGroupId()));
 
 		articleSearchContainer.setRowMover(entriesMover);
 
@@ -1245,17 +1283,21 @@ public class JournalDisplayContext {
 		}
 
 		searchContext.setAttribute("head", !showVersions);
+		searchContext.setAttribute("latest", !showVersions);
 		searchContext.setAttribute("params", params);
+
+		if (!showVersions) {
+			searchContext.setAttribute("showNonindexable", Boolean.TRUE);
+		}
+
 		searchContext.setEnd(end);
 		searchContext.setFolderIds(folderIds);
 		searchContext.setStart(start);
 
-		QueryConfig queryConfig = new QueryConfig();
+		QueryConfig queryConfig = searchContext.getQueryConfig();
 
 		queryConfig.setHighlightEnabled(false);
 		queryConfig.setScoreEnabled(false);
-
-		searchContext.setQueryConfig(queryConfig);
 
 		if (sort != null) {
 			searchContext.setSorts(sort);
@@ -1264,40 +1306,6 @@ public class JournalDisplayContext {
 		searchContext.setStart(start);
 
 		return searchContext;
-	}
-
-	protected String getDisplayStyle(
-		HttpServletRequest request, String[] displayViews) {
-
-		PortalPreferences portalPreferences =
-			PortletPreferencesFactoryUtil.getPortalPreferences(request);
-
-		String displayStyle = ParamUtil.getString(request, "displayStyle");
-
-		if (Validator.isNull(displayStyle)) {
-			JournalWebConfiguration journalWebConfiguration =
-				(JournalWebConfiguration)_request.getAttribute(
-					JournalWebConfiguration.class.getName());
-
-			displayStyle = portalPreferences.getValue(
-				JournalPortletKeys.JOURNAL, "display-style",
-				journalWebConfiguration.defaultDisplayView());
-		}
-		else {
-			if (ArrayUtil.contains(displayViews, displayStyle)) {
-				portalPreferences.setValue(
-					JournalPortletKeys.JOURNAL, "display-style", displayStyle);
-
-				request.setAttribute(
-					WebKeys.SINGLE_PAGE_APPLICATION_CLEAR_CACHE, Boolean.TRUE);
-			}
-		}
-
-		if (!ArrayUtil.contains(displayViews, displayStyle)) {
-			displayStyle = displayViews[0];
-		}
-
-		return displayStyle;
 	}
 
 	protected ManagementBarFilterItem getManagementBarFilterItem(int status)
@@ -1379,5 +1387,6 @@ public class JournalDisplayContext {
 	private Boolean _showEditActions;
 	private Integer _status;
 	private String _tabs1;
+	private final TrashHelper _trashHelper;
 
 }

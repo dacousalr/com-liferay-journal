@@ -1,4 +1,3 @@
-<%--
 /**
  * Copyright (c) 2000-present Liferay, Inc. All rights reserved.
  *
@@ -12,24 +11,18 @@
  * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
  * details.
  */
---%>
 
-<%@ include file="/init.jsp" %>
+package com.liferay.journal.item.selector.web.internal;
 
-<%
-JournalArticle latestArticle = journalContentDisplayContext.getLatestArticle();
+/**
+ * @author Roberto Díaz
+ */
+public class JournalItemSelectorWebKeys {
 
-Map<String, Object> data = new HashMap<String, Object>();
+	public static final String DL_MIME_TYPE_DISPLAY_CONTEXT =
+		"DL_MIME_TYPE_DISPLAY_CONTEXT";
 
-data.put("destroyOnHide", true);
-data.put("id", HtmlUtil.escape(portletDisplay.getNamespace()) + "editAsset");
-data.put("title", HtmlUtil.escape(latestArticle.getTitle(locale)));
-%>
+	public static final String JOURNAL_ITEM_SELECTOR_VIEW_DISPLAY_CONTEXT =
+		"JOURNAL_ITEM_SELECTOR_VIEW_DISPLAY_CONTEXT";
 
-<liferay-ui:icon
-	data="<%= data %>"
-	id="editWebContentIcon"
-	message="edit-web-content"
-	url="<%= journalContentDisplayContext.getURLEdit() %>"
-	useDialog="<%= true %>"
-/>
+}

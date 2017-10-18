@@ -97,6 +97,8 @@ if (article != null) {
 
 boolean showHeader = ParamUtil.getBoolean(request, "showHeader", true);
 
+boolean hideDefaultSuccessMessage = ParamUtil.getBoolean(request, "hideDefaultSuccessMessage", false);
+
 request.setAttribute("edit_article.jsp-redirect", redirect);
 
 request.setAttribute("edit_article.jsp-structure", ddmStructure);
@@ -154,7 +156,7 @@ request.setAttribute("edit_article.jsp-changeStructure", changeStructure);
 
 <aui:form action="<%= editArticleActionURL %>" cssClass="container-fluid-1280" enctype="multipart/form-data" method="post" name="fm1" onSubmit="event.preventDefault();">
 	<aui:input name="<%= ActionRequest.ACTION_NAME %>" type="hidden" />
-	<aui:input name="hideDefaultSuccessMessage" type="hidden" value="<%= classNameId == PortalUtil.getClassNameId(DDMStructure.class) %>" />
+	<aui:input name="hideDefaultSuccessMessage" type="hidden" value="<%= hideDefaultSuccessMessage || (classNameId == PortalUtil.getClassNameId(DDMStructure.class)) %>" />
 	<aui:input name="redirect" type="hidden" value="<%= redirect %>" />
 	<aui:input name="portletResource" type="hidden" value="<%= portletResource %>" />
 	<aui:input name="referringPlid" type="hidden" value="<%= referringPlid %>" />
@@ -195,11 +197,7 @@ request.setAttribute("edit_article.jsp-changeStructure", changeStructure);
 		<liferay-ui:error exception="<%= FileSizeException.class %>">
 
 			<%
-			long fileMaxSize = PrefsPropsUtil.getLong(PropsKeys.DL_FILE_MAX_SIZE);
-
-			if (fileMaxSize == 0) {
-				fileMaxSize = UploadServletRequestConfigurationHelperUtil.getMaxSize();
-			}
+			long fileMaxSize = DLValidatorUtil.getMaxAllowableSize();
 			%>
 
 			<liferay-ui:message arguments="<%= TextFormatter.formatStorageSize(fileMaxSize, locale) %>" key="please-enter-a-file-with-a-valid-file-size-no-larger-than-x" translateArguments="<%= false %>" />

@@ -34,7 +34,6 @@ import com.liferay.portal.kernel.model.Layout;
 import com.liferay.portal.kernel.search.Hits;
 import com.liferay.portal.kernel.search.Indexer;
 import com.liferay.portal.kernel.search.IndexerRegistryUtil;
-import com.liferay.portal.kernel.search.QueryConfig;
 import com.liferay.portal.kernel.search.SearchContext;
 import com.liferay.portal.kernel.service.GroupLocalServiceUtil;
 import com.liferay.portal.kernel.service.LayoutLocalServiceUtil;
@@ -723,10 +722,6 @@ public class JournalTestUtil {
 		searchContext.setGroupIds(new long[] {groupId});
 		searchContext.setKeywords(StringPool.BLANK);
 
-		QueryConfig queryConfig = new QueryConfig();
-
-		searchContext.setQueryConfig(queryConfig);
-
 		return indexer.search(searchContext);
 	}
 
@@ -968,8 +963,7 @@ public class JournalTestUtil {
 		return map;
 	}
 
-	private static final Locale[] _locales = {
-		LocaleUtil.US, LocaleUtil.GERMANY, LocaleUtil.SPAIN
-	};
+	private static final Locale[] _locales =
+		{LocaleUtil.US, LocaleUtil.GERMANY, LocaleUtil.SPAIN};
 
 }
